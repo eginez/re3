@@ -84,14 +84,14 @@ class Matcher {
 
     public Matcher(String regex) {
         this.regex = regex;
-        start = parseRegex(regex);
+        start = parsePostfixRegex(regex);
     }
 
     public State getStart() {
         return start;
     }
 
-    private State parseRegex(String regex) {
+    private State parsePostfixRegex(String regex) {
         Stack<Fragment> stack = new Stack<>();
         State init = State.Noop();
         stack.push(new Fragment(init, init));
@@ -106,6 +106,23 @@ class Matcher {
                     State s = State.Split(popped.start, null);
                     fragment = new Fragment(s, s);
                     popped.connect(s);
+                    break;
+                case '+':
+                    popped = stack.pop();
+                    State n = State.Split(popped.start, null);
+                    popped.connect(n);
+                    fragment = new Fragment(popped.start, n);
+                    break;
+                case '?':
+                    popped = stack.pop();
+                    State ss = State.Split(popped.start, null);
+                    fragment = new Fragment(ss, concatenate(popped.outStates, ss));
+                    break;
+                case '|':
+                    popped = stack.pop();
+                    Fragment alt2 = stack.pop();
+                    State alternate = State.Split(popped.start, alt2.start);
+                    fragment = new Fragment(alternate, concatenate(popped.outStates, alt2.outStates));
                     break;
                 default:
                     popped = stack.pop();
@@ -122,7 +139,19 @@ class Matcher {
         return whole.start;
     }
 
-    public boolean match(String string) {
+    private static <T> List<T> concatenate(List<T> elements, T... more) {
+        List<T> all = new ArrayList<>(elements);
+        Collections.addAll(all, more);
+        return all;
+    }
+
+    private static <T> List<T> concatenate(List<T> elements, List<T> more) {
+        List<T> all = new ArrayList<>(elements);
+        all.addAll(more);
+        return all;
+    }
+
+    public boolean matchAny(String string) {
         Set<State> currStates = new HashSet<>();
         addState(currStates, start);
 
@@ -173,7 +202,7 @@ public class Main {
 
         final Matcher matcher = new Matcher(args[0]);
 
-        String result = matcher.match(args[1]) ? "matched" : "not-matched";
+        String result = matcher.matchAny(args[1]) ? "matched" : "not-matched";
         System.out.println(result);
     }
 }
