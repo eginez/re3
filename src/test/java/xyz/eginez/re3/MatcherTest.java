@@ -8,9 +8,9 @@ public class MatcherTest {
     public void testParsing() {
         Matcher m = new Matcher("a*");
         final State start = m.getStart();
-        Assert.assertEquals(State.SPLIT, start.c);
-        Assert.assertEquals('a', start.exit.c);
-        Assert.assertEquals(State.MATCHED_STATE, start.exit2);
+        Assert.assertTrue(start.isSplit());
+        Assert.assertTrue(start.next.isNoop());
+        Assert.assertEquals(State.MATCHED, start.next2);
 
         Assert.assertTrue(m.match("a"));
         Assert.assertTrue(m.match("aa"));
@@ -18,11 +18,14 @@ public class MatcherTest {
     }
 
     @Test
-    public void testSimpleZeroOrMore() {
-        //Missing concatenation
-        Matcher m = new Matcher("ab*");
-        Assert.assertTrue(m.match("a"));
+    public void testSimpleConcat() {
+        Matcher m = new Matcher("ab");
+        Assert.assertTrue(m.match("abc"));
+
         Assert.assertTrue(m.match("ab"));
+        Assert.assertFalse(m.match("b"));
         Assert.assertFalse(m.match(""));
+        Assert.assertFalse(m.match("a"));
+        Assert.assertTrue(m.match("aba"));
     }
 }
