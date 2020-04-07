@@ -8,7 +8,6 @@ class State {
     State next2;
 
     public static final State MATCHED = new State(0, null, null);
-    private static final int NO_OP = -1;
     private static final int SPLIT = -2;
 
     State(char c, State next, State next2) {
@@ -21,8 +20,13 @@ class State {
         this.next2 = next2;
     }
 
-    static State Noop() {
-        return new State(NO_OP, null, null);
+    void clearConnection(State s) {
+        if (s == next) {
+            next = null;
+            return;
+        }
+        assert next2 == s;
+        next2 = null;
     }
 
     static State Split(State next, State next2) {
@@ -34,10 +38,6 @@ class State {
         next2 = next2 == null ? s : next2;
     }
 
-    boolean isNoop() {
-        return c == NO_OP;
-    }
-
     boolean isSplit() {
         return c == SPLIT;
     }
@@ -47,12 +47,10 @@ class State {
         if (this == MATCHED) {
             return "MATCHED";
         }
-        if (this.isNoop()) {
-            return "NOOP";
-        }
 
+        String cs = isSplit() ? "SPLIT" : String.format("%s", (char) c);
         return "State{" +
-                "c=" + c +
+                "c=" + cs +
                 ", next=" + next +
                 ", next2=" + next2 +
                 '}';
@@ -93,50 +91,58 @@ class Matcher {
 
     private State parsePostfixRegex(String regex) {
         Stack<Fragment> stack = new Stack<>();
-        State init = State.Noop();
-        stack.push(new Fragment(init, init));
 
         for (int i = 0; i < regex.length(); i++) {
             char c = regex.charAt(i);
             Fragment fragment;
-            Fragment popped = null;
+            Fragment lastFragment = null;
+            State newState;
             switch (c) {
                 case '*':
-                    popped = stack.pop();
-                    State s = State.Split(popped.start, null);
-                    fragment = new Fragment(s, s);
-                    popped.connect(s);
+                    lastFragment = stack.pop();
+                    newState = State.Split(lastFragment.start, null);
+                    fragment = new Fragment(newState, newState);
+                    lastFragment.connect(newState);
                     break;
                 case '+':
-                    popped = stack.pop();
-                    State n = State.Split(popped.start, null);
-                    popped.connect(n);
-                    fragment = new Fragment(popped.start, n);
+                    lastFragment = stack.pop();
+                    newState = State.Split(lastFragment.start, null);
+                    lastFragment.connect(newState);
+                    fragment = new Fragment(lastFragment.start, newState);
                     break;
                 case '?':
-                    popped = stack.pop();
-                    State ss = State.Split(popped.start, null);
-                    fragment = new Fragment(ss, concatenate(popped.outStates, ss));
+                    lastFragment = stack.pop();
+                    newState = State.Split(lastFragment.start, null);
+                    fragment = new Fragment(newState, concatenate(lastFragment.outStates, newState));
                     break;
                 case '|':
-                    popped = stack.pop();
-                    Fragment alt2 = stack.pop();
-                    State alternate = State.Split(popped.start, alt2.start);
-                    fragment = new Fragment(alternate, concatenate(popped.outStates, alt2.outStates));
+                    lastFragment = stack.pop();
+                    Fragment beforeLast = stack.pop();
+                    newState = State.Split(lastFragment.start, beforeLast.start);
+                    beforeLast.outStates = Collections.singletonList(beforeLast.start);
+                    beforeLast.start.clearConnection(lastFragment.start);
+                    fragment = new Fragment(newState, concatenate(lastFragment.outStates, beforeLast.outStates));
                     break;
                 default:
-                    popped = stack.pop();
-                    State st = new State(c, null, null);
-                    popped.connect(st);
-                    fragment = new Fragment(popped.start, st);
+                    newState = new State(c, null, null);
+                    Fragment newFragment = new Fragment(newState, newState);
+                    if (!stack.isEmpty()) {
+                        Fragment bf = stack.peek();
+                        bf.connect(newFragment.start);
+                    }
+                    fragment = newFragment;
                     break;
             }
             stack.push(fragment);
         }
 
-        final Fragment whole = stack.pop();
-        whole.connect(State.MATCHED);
-        return whole.start;
+        Fragment last = stack.pop();
+        last.connect(State.MATCHED);
+        Fragment first = last;
+        while (!stack.isEmpty()) {
+            first = stack.pop();
+        }
+        return first.start;
     }
 
     private static <T> List<T> concatenate(List<T> elements, T... more) {
@@ -177,17 +183,16 @@ class Matcher {
 
     private static Set<State> step(Set<State> currentStates, char c) {
         HashSet<State> newStates = new HashSet<>();
-        currentStates.forEach(s -> {
-            State currS = s.isNoop() ? s.next : s;
+        for (State currS : currentStates) {
             if (currS == State.MATCHED) {
                 newStates.add(State.MATCHED);
-                return;
+                break;
             }
 
             if (currS.c == c) {
                 addState(newStates, currS.next);
             }
-        });
+        }
         return newStates;
     }
 }

@@ -12,8 +12,6 @@ public class MatcherTest {
         Matcher m = new Matcher("a*");
         final State start = m.getStart();
         Assert.assertTrue(start.isSplit());
-        Assert.assertTrue(start.next.isNoop());
-        Assert.assertEquals(State.MATCHED, start.next2);
 
         Assert.assertTrue(m.matchAny("a"));
         Assert.assertTrue(m.matchAny("aa"));
