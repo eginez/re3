@@ -7,6 +7,17 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class MatcherTest {
+
+    private static void match(Matcher m, boolean match, String ...args) {
+        for (String s : args) {
+            if (match) {
+                assertTrue(String.format("%s should match %s", s, m.getRegex()), m.matchAny(s));
+            } else {
+                assertFalse(String.format("%s should NOT match %s", s, m.getRegex()), m.matchAny(s));
+            }
+        }
+    }
+
     @Test
     public void testParsing() {
         Matcher m = new Matcher("a*");
@@ -52,5 +63,14 @@ public class MatcherTest {
         Matcher matcher = new Matcher("ab|");
         assertTrue(matcher.matchAny("b"));
         assertTrue(matcher.matchAny("a"));
+        assertFalse(matcher.matchAny(""));
+        assertTrue(matcher.matchAny("ab"));
+    }
+
+
+    @Test
+    public void mixRegex() {
+        Matcher m = new Matcher("es|teban*");
+        match(m, true, "steban", "etebann");
     }
 }

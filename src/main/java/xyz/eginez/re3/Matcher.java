@@ -7,7 +7,7 @@ class State {
     State next;
     State next2;
 
-    public static final State MATCHED = new State(0, null, null);
+    public static final State MATCH = new State(0, null, null);
     private static final int SPLIT = -2;
 
     State(char c, State next, State next2) {
@@ -44,8 +44,8 @@ class State {
 
     @Override
     public String toString() {
-        if (this == MATCHED) {
-            return "MATCHED";
+        if (this == MATCH) {
+            return "MATCH";
         }
 
         String cs = isSplit() ? "SPLIT" : String.format("%s", (char) c);
@@ -76,7 +76,7 @@ class Fragment {
     }
 }
 
-class Matcher {
+public class Matcher {
     private final String regex;
     private final State start;
 
@@ -85,13 +85,30 @@ class Matcher {
         start = parsePostfixRegex(regex);
     }
 
-    public State getStart() {
+    public String getRegex() {
+        return regex;
+    }
+
+    protected State getStart() {
         return start;
     }
 
-    private State parsePostfixRegex(String regex) {
-        Stack<Fragment> stack = new Stack<>();
+    private static <T> List<T> concatenate(List<T> elements, T more) {
+        List<T> all = new ArrayList<>(elements);
+        Collections.addAll(all, more);
+        return all;
+    }
 
+    private static <T> List<T> concatenate(List<T> elements, List<T> more) {
+        List<T> all = new ArrayList<>(elements);
+        all.addAll(more);
+        return all;
+    }
+
+    private State parsePostfixRegex(String regex) {
+        assert !regex.isEmpty();
+
+        Deque<Fragment> stack = new LinkedList<>();
         for (int i = 0; i < regex.length(); i++) {
             char c = regex.charAt(i);
             Fragment fragment;
@@ -136,26 +153,12 @@ class Matcher {
             stack.push(fragment);
         }
 
-        Fragment last = stack.pop();
-        last.connect(State.MATCHED);
-        Fragment first = last;
-        while (!stack.isEmpty()) {
-            first = stack.pop();
-        }
-        return first.start;
+        assert !stack.isEmpty();
+        Fragment last = stack.getFirst();
+        last.connect(State.MATCH);
+        return stack.getLast().start;
     }
 
-    private static <T> List<T> concatenate(List<T> elements, T... more) {
-        List<T> all = new ArrayList<>(elements);
-        Collections.addAll(all, more);
-        return all;
-    }
-
-    private static <T> List<T> concatenate(List<T> elements, List<T> more) {
-        List<T> all = new ArrayList<>(elements);
-        all.addAll(more);
-        return all;
-    }
 
     public boolean matchAny(String string) {
         Set<State> currStates = new HashSet<>();
@@ -165,7 +168,7 @@ class Matcher {
             currStates = step(currStates, string.charAt(i));
         }
 
-        return currStates.contains(State.MATCHED);
+        return currStates.contains(State.MATCH);
     }
 
     private static void addState(Set<State> acc, State s) {
@@ -184,8 +187,8 @@ class Matcher {
     private static Set<State> step(Set<State> currentStates, char c) {
         HashSet<State> newStates = new HashSet<>();
         for (State currS : currentStates) {
-            if (currS == State.MATCHED) {
-                newStates.add(State.MATCHED);
+            if (currS == State.MATCH) {
+                newStates.add(State.MATCH);
                 break;
             }
 
@@ -195,9 +198,6 @@ class Matcher {
         }
         return newStates;
     }
-}
-
-public class Main {
 
     public static void main(String[] args) {
         if (args.length != 2) {
