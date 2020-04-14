@@ -2,7 +2,11 @@ package xyz.eginez.re3;
 
 import java.util.*;
 
-class State {
+interface Connected<T> {
+    void connect(T newT);
+    void clearConnection(T c);
+}
+class State implements Connected<State> {
     int c;
     State next;
     State next2;
@@ -20,10 +24,9 @@ class State {
         this.next2 = next2;
     }
 
-    void clearConnection(State s) {
+    public void clearConnection(State s) {
         if (s == next) {
             next = null;
-            return;
         }
         assert next2 == s;
         next2 = null;
@@ -33,7 +36,7 @@ class State {
         return new State(SPLIT, next, next2);
     }
 
-    void connect(State s) {
+    public void connect(State s) {
         next = next == null ? s : next;
         next2 = next2 == null ? s : next2;
     }
@@ -57,24 +60,25 @@ class State {
     }
 }
 
-class Fragment {
-    State start;
-    List<State> outStates;
+class Fragment<T extends Connected<T>> {
+    T start;
+    List<T> outStates;
 
-    Fragment(State start, State state) {
+    Fragment(T start, T state) {
         this(start, Collections.singletonList(state));
     }
 
-    Fragment(State start, List<State> outStates) {
+    Fragment(T start, List<T> outStates) {
         assert outStates != null;
         this.start = start;
         this.outStates = outStates;
     }
 
-    void connect(final State s) {
+    void connect(final T s) {
         outStates.forEach(out -> out.connect(s));
     }
 }
+
 
 public class Matcher {
     private final String regex;
@@ -108,11 +112,11 @@ public class Matcher {
     private State parsePostfixRegex(String regex) {
         assert !regex.isEmpty();
 
-        Deque<Fragment> stack = new LinkedList<>();
+        Deque<Fragment<State>> stack = new LinkedList<>();
         for (int i = 0; i < regex.length(); i++) {
             char c = regex.charAt(i);
-            Fragment fragment;
-            Fragment lastFragment = null;
+            Fragment<State> fragment;
+            Fragment<State> lastFragment = null;
             State newState;
             switch (c) {
                 case '*':
@@ -134,7 +138,7 @@ public class Matcher {
                     break;
                 case '|':
                     lastFragment = stack.pop();
-                    Fragment beforeLast = stack.pop();
+                    Fragment<State> beforeLast = stack.pop();
                     newState = State.Split(lastFragment.start, beforeLast.start);
                     beforeLast.outStates = Collections.singletonList(beforeLast.start);
                     beforeLast.start.clearConnection(lastFragment.start);

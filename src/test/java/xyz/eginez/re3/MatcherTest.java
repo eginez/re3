@@ -20,13 +20,13 @@ public class MatcherTest {
 
     @Test
     public void testParsing() {
-        Matcher m = new Matcher("a*");
+        Matcher m = new Matcher("a*b");
         final State start = m.getStart();
         Assert.assertTrue(start.isSplit());
 
-        Assert.assertTrue(m.matchAny("a"));
-        Assert.assertTrue(m.matchAny("aa"));
-        Assert.assertTrue(m.matchAny(""));
+        Assert.assertTrue(m.matchAny("ab"));
+        Assert.assertTrue(m.matchAny("aab"));
+        Assert.assertTrue(m.matchAny("b"));
     }
 
     @Test
