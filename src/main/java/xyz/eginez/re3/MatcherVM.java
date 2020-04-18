@@ -80,24 +80,56 @@ public class MatcherVM {
         start = parse(regex);
     }
 
+    public String getRegex() {
+        return regex;
+    }
+
     private Node parse(String regex) {
-        final LinkedList<Fragment<Node>> stack = new LinkedList<>();
+        if (regex == null || regex.isEmpty()) {
+            throw new RuntimeException("Regex must be not empty");
+        }
+
+        Deque<LinkedList<Fragment<Node>>>  allFrames = new LinkedList<>();
+        allFrames.push(new LinkedList<>());
+        LinkedList<Fragment<Node>> currentFrame;
+
         for (int i = 0; i < regex.length(); i++) {
+            currentFrame = allFrames.peek();
+            assert currentFrame != null;
             char c = regex.charAt(i);
             switch (c) {
                 case '*':
-                    processZeroMore(stack);
+                    processZeroMore(currentFrame);
+                    break;
+                case '(':
+                    allFrames.push(new LinkedList<>());
+                    break;
+                case ')':
+                    closeParen(allFrames);
                     break;
                 default:
-                    processChar(c, stack);
+                    processLiteral(c, currentFrame);
                     break;
             }
         }
-        stack.getFirst().connect(Node.Match());
-        return stack.getLast().start;
+        LinkedList<Fragment<Node>> lastFrame = allFrames.peek();
+        lastFrame.getFirst().connect(Node.Match());
+        return lastFrame.getLast().start;
     }
 
-    public void processChar(char c, Deque<Fragment<Node>> stack) {
+    private void closeParen(Deque<LinkedList<Fragment<Node>>>  all) {
+        LinkedList<Fragment<Node>> currentFrame = all.pop();
+        Node lastStart = currentFrame.getLast().start;
+        Fragment<Node> newFragment = new Fragment<>(lastStart, currentFrame.getFirst().outStates);
+        assert !all.isEmpty();
+        LinkedList<Fragment<Node>> lastFrame = all.peek();
+        if(!lastFrame.isEmpty()) {
+            lastFrame.peek().connect(newFragment.start);
+        }
+        lastFrame.push(newFragment);
+    }
+
+    public void processLiteral(char c, Deque<Fragment<Node>> stack) {
         Node newInstruction = Node.Char(c);
         Fragment<Node> newFragment = new Fragment<>(newInstruction, newInstruction);
         if (!stack.isEmpty()) {
@@ -132,25 +164,25 @@ public class MatcherVM {
     public List<Instruction> toByteCode() {
         Map<Node, Map.Entry<Instruction, Integer>> flattenNodes = toByteCode(start, new LinkedHashMap<>());
         List<Instruction> instructions = new ArrayList<>();
-        flattenNodes.forEach((n,v) -> {
-           if (n.opCode == JUMP_OPCODE) {
-               assert flattenNodes.containsKey(n.next);
-               Integer jumpTo = flattenNodes.get(n.next).getValue();
-               instructions.add(new JumpInstruction(jumpTo));
-           } else if (n.opCode == SPLIT_OPCODE) {
-               assert flattenNodes.containsKey(n.next);
-               assert flattenNodes.containsKey(n.next2);
-               Integer split1 = flattenNodes.get(n.next).getValue();
-               Integer split2 = flattenNodes.get(n.next2).getValue();
-               instructions.add(new SplitInstruction(split1, split2));
-           } else {
-               instructions.add(v.getKey());
-           }
+        flattenNodes.forEach((n, v) -> {
+            if (n.opCode == JUMP_OPCODE) {
+                assert flattenNodes.containsKey(n.next);
+                Integer jumpTo = flattenNodes.get(n.next).getValue();
+                instructions.add(new JumpInstruction(jumpTo));
+            } else if (n.opCode == SPLIT_OPCODE) {
+                assert flattenNodes.containsKey(n.next);
+                assert flattenNodes.containsKey(n.next2);
+                Integer split1 = flattenNodes.get(n.next).getValue();
+                Integer split2 = flattenNodes.get(n.next2).getValue();
+                instructions.add(new SplitInstruction(split1, split2));
+            } else {
+                instructions.add(v.getKey());
+            }
         });
         return instructions;
     }
 
-    private Map<Node, Map.Entry<Instruction,Integer>> toByteCode(Node current, Map<Node, Map.Entry<Instruction,Integer>> visited) {
+    private Map<Node, Map.Entry<Instruction, Integer>> toByteCode(Node current, Map<Node, Map.Entry<Instruction, Integer>> visited) {
         if (current == null || visited.containsKey(current)) {
             return visited;
         }

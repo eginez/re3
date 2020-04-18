@@ -97,13 +97,13 @@ public class Matcher {
         return start;
     }
 
-    private static <T> List<T> concatenate(List<T> elements, T more) {
+    public static <T> List<T> concatenate(List<T> elements, T more) {
         List<T> all = new ArrayList<>(elements);
         Collections.addAll(all, more);
         return all;
     }
 
-    private static <T> List<T> concatenate(List<T> elements, List<T> more) {
+    public static <T> List<T> concatenate(List<T> elements, List<T> more) {
         List<T> all = new ArrayList<>(elements);
         all.addAll(more);
         return all;

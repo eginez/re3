@@ -42,9 +42,10 @@ public class VM {
         Runtime rt = new Runtime(program, 0);
         int sp = 0;
         while (!rt.getCurrent().isEmpty()) {
+            //TODO fix assumption that all instructions have point to the same sp
             int c = sp < input.length()
                     ? input.charAt(sp++)
-                    : 0;
+                    : input.charAt(input.length() - 1);
             for (Instruction ins : rt.getCurrent()) {
                 if (ins.eval(c, rt)) {
                     return true;
